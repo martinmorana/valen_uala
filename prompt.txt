@@ -1,0 +1,218 @@
+TAREA: Diseñar y construir una aplicación (web + móvil) llamada “Ualá Junior Plus” que integre educación financiera gamificada para adolescentes, supervisión parental y un marketplace B2B de recompensas. Entregar diseño (Figma), arquitectura, y prototipo funcional (frontend + backend simulable).
+
+# 1) CONTEXTO Y OBJETIVO
+- Empresa: Ualá (fintech LATAM).
+- Misión: inclusión financiera responsable.
+- Problema: adolescentes (13–17) usan billeteras digitales sin educación ni control parental; padres carecen de herramientas de seguimiento.
+- Objetivo del producto: formar usuarios financieros responsables, dar control a las familias y generar valor de negocio (fidelización y comisiones B2B).
+
+# 2) PERSONAS (PERFILES DE USUARIO)
+- Adolescente (usuario junior): 13–17 años. Quiere aprender, ahorrar, ganar recompensas. Uso móvil.
+- Padre/Madre/Tutor (usuario parental): quiere visibilidad, límites y alertas. Uso móvil y web.
+- Admin interno Ualá: gestiona contenidos educativos, comercios del marketplace y reportes.
+
+# 3) ALCANCE (IN / OUT SCOPE)
+IN-SCOPE (MVP):
+- Autenticación dual (Junior + Parental) con vinculación de cuentas.
+- Módulo educativo gamificado: misiones semanales, badges, puntos, barra de progreso.
+- Metas de ahorro: crear/editar metas, progreso, recordatorios.
+- Dashboard parental: límites de gasto simbólicos, aprobación de ciertas acciones del junior, reportes de actividad, mensajes educativos.
+- Marketplace B2B: catálogo, puntos, canje (simulado), cupones/beneficios educativos.
+- Notificaciones: push/email para hitos, límites y recordatorios.
+- Panel admin interno: CRUD de contenidos (misiones, lecciones), partners y campañas.
+- Analítica de aprendizaje y uso (eventos).
+- Localización: español (AR) con soporte i18n preparado.
+- Accesibilidad AA (WCAG 2.1): focus visible, contraste, lector de pantalla, tamaños de toque.
+
+OUT-OF-SCOPE (MVP):
+- Operaciones financieras reales / integración bancaria (solo simulación educativa).
+- Integración con brokers externos.
+- Despliegue internacional (solo AR).
+- Soporte a menores de 13 años.
+
+# 4) PLATAFORMAS Y TECNOLOGÍA (sugerido, editable)
+- Frontend: React (web) + React Native/Expo (móvil). UI kit: shadcn/ui o Material; iconos lucide.
+- Backend: Node.js + NestJS/Express; API REST + Webhooks; autenticación JWT/OAuth2.
+- BBDD: PostgreSQL (relacional) + Redis (caché).
+- Infra: Docker, CI/CD, .env por entorno, logs centralizados.
+- Analítica: Segment/GA4 (eventos definidos abajo).
+- Notificaciones: Firebase Cloud Messaging (push); correo transaccional (simulado).
+
+# 5) ARQUITECTURA (alto nivel)
+- Apps cliente (Junior, Parental, Admin) → API Gateway → Servicios:
+  - Servicio-Usuarios (auth, perfiles, vinculación J/P)
+  - Servicio-Educación (misiones, badges, progreso)
+  - Servicio-Metas (ahorro, objetivos)
+  - Servicio-Marketplace (catálogo, puntos, cupones)
+  - Servicio-Notificaciones
+  - Servicio-Reportes/Analítica
+- Persistencia en PostgreSQL. Cifrado en tránsito (TLS) y en reposo.
+- Feature flags para activar/desactivar módulos.
+
+# 6) PANTALLAS Y FLUJOS CLAVE
+A) Junior
+- Onboarding + verificación de edad + código de vinculación con tutor.
+- Home: “Progreso semanal”, misiones activas, puntos, próximo badge.
+- Misiones: lista, detalle (objetivo, pasos, evidencia), completar, feedback.
+- Metas de ahorro: crear meta (monto, fecha), progreso, editar, completar.
+- Marketplace: catálogo, detalle, canjear (simulación), historial de canjes.
+- Perfil: badges, nivel, preferencias, privacidad.
+
+B) Parental
+- Onboarding + vinculación con hijo/a (código o invitación).
+- Dashboard: actividad del junior (misiones, metas), KPIs básicos.
+- Controles: límites simbólicos (tiempo, categorías), aprobaciones requeridas.
+- Alertas y mensajes educativos: feed + detalle (explicaciones).
+- Reportes descargables (PDF/CSV simple).
+
+C) Admin interno
+- Contenidos: CRUD misiones, lecciones, quizzes, badges, reglas de puntos.
+- Partners B2B: alta/edición, catálogo, stock, condiciones de canje.
+- Campañas educativas: segmentación básica y scheduling.
+- Reportes: adopción, finalización de misiones, uso de cupones, NPS.
+
+# 7) DOMINIO DE DATOS (modelo mínimo)
+Entidades: User, ParentLink, Mission, MissionProgress, Badge, Goal (Meta), MarketplaceItem, Redemption, Notification, ContentArticle, Partner, AuditLog.
+JSON de ejemplo (PostgreSQL, camelCase):
+{
+  "User": {
+    "id": "uuid",
+    "role": "JUNIOR|PARENT|ADMIN",
+    "email": "string",
+    "phone": "string",
+    "birthDate": "date",
+    "displayName": "string",
+    "locale": "es-AR",
+    "createdAt": "timestamp"
+  },
+  "ParentLink": { "id":"uuid","juniorId":"uuid","parentId":"uuid","status":"PENDING|ACTIVE|REVOKED","createdAt":"ts" },
+  "Mission": { "id":"uuid","title":"string","type":"QUIZ|HABIT|SIMULATION","points":100,"difficulty":"E|M|D","week":"YYYY-WW","contentMarkdown":"string" },
+  "MissionProgress": { "id":"uuid","missionId":"uuid","juniorId":"uuid","status":"ASSIGNED|IN_PROGRESS|DONE|VERIFIED","evidenceUrl":"string","score":0,"updatedAt":"ts" },
+  "Badge": { "id":"uuid","name":"string","criteria":"string","icon":"string" },
+  "Goal": { "id":"uuid","juniorId":"uuid","title":"string","targetAmount":1000,"savedAmount":250,"deadline":"date","status":"ACTIVE|COMPLETED|CANCELLED" },
+  "MarketplaceItem": { "id":"uuid","partnerId":"uuid","name":"string","pointsCost":500,"stock":50,"terms":"string","imageUrl":"string","active":true },
+  "Redemption": { "id":"uuid","itemId":"uuid","juniorId":"uuid","pointsSpent":500,"code":"ABC123","status":"ISSUED|REDEEMED","createdAt":"ts" },
+  "Notification": { "id":"uuid","userId":"uuid","channel":"PUSH|EMAIL","title":"string","body":"string","status":"SENT|READ","createdAt":"ts" },
+  "Partner": { "id":"uuid","name":"string","category":"LIBRERIA|TECNOLOGIA|CURSOS","contact":"string","agreementUrl":"string","active":true }
+}
+
+# 8) API (endpoints ejemplo)
+Auth
+- POST /auth/register (junior|parent|admin)
+- POST /auth/login
+- POST /links/invite-parent  (junior → genera código)
+- POST /links/accept         (parent → vincula hijo)
+
+Educación
+- GET  /missions?week=[[YYYY-WW]]
+- POST /missions/{id}/progress (start|evidence|complete)
+- GET  /badges/me
+
+Metas (Goals)
+- POST /goals
+- PATCH /goals/{id} (update savedAmount/status)
+- GET   /goals/me
+
+Marketplace
+- GET  /catalog
+- POST /redeem/{itemId}   (valida puntos y crea código simulado)
+- GET  /redeem/history
+
+Parental
+- GET  /parent/dashboard?juniorId=...
+- POST /parent/limits
+- POST /parent/approve (acciones que requieren aprobación)
+- GET  /reports/monthly?format=pdf|csv
+
+Admin
+- CRUD /admin/missions
+- CRUD /admin/partners
+- GET  /admin/analytics (kpis)
+
+# 9) SEGURIDAD Y CUMPLIMIENTO
+- JWT con expiración corta + refresh tokens; rotación de tokens.
+- Roles y permisos RBAC: JUNIOR/ PARENT/ ADMIN con scopes por endpoint.
+- Cifrado TLS en tránsito y AES at-rest (si aplica).
+- Protección de menores: consentimiento parental, controles de privacidad, opt-in notificaciones.
+- Auditoría (AuditLog) para acciones sensibles.
+- RGPD/LPDP: políticas de datos, derecho a supresión/exportación.
+
+# 10) GAMIFICACIÓN Y LÓGICA
+- Sistema de puntos por misión (dificultad ponderada) + badges por hitos (primer ahorro, racha semanal, meta cumplida).
+- Rachas (streaks) y misiones sorpresa de fin de semana.
+- Puntos canjeables en Marketplace (sin dinero real).
+- Antifraude básico: cooldown por misión, verificación por evidencia/quiz.
+
+# 11) ANALÍTICA Y KPIs
+Eventos (GA4/Segment):
+- app_open, signup_completed(role), link_parent_created, link_parent_accepted
+- mission_assigned, mission_started, mission_completed, badge_unlocked
+- goal_created, goal_progressed, goal_completed
+- marketplace_viewed, item_redeemed
+- parent_dashboard_viewed, limit_set, approval_granted
+KPIs:
+- Adopción junior/parent, tasa de vinculación, tasa de finalización de misiones, tiempo a primer badge, % metas cumplidas, MAU/DAU, NPS, canjes/usuario.
+
+# 12) ACCESIBILIDAD Y UX
+- WCAG 2.1 AA: contraste, navegación por teclado, descripciones ARIA.
+- Contenido educativo en lenguaje claro, micro-copys pedagógicos, feedback inmediato.
+- Soporte dark mode; tipografías legibles; botones 44×44 px mínimo.
+
+# 13) LOCALIZACIÓN Y LEGAL
+- i18n listo para es-AR / es-LATAM; formatos locales de fecha, moneda y número.
+- Términos y consentimiento para cuentas junior con tutor.
+
+# 14) NO FUNCIONALES
+- Performance: TTFB < 200ms (API), p95 latencia < 400ms, LCP < 2.5s.
+- Confiabilidad: 99.5% uptime (MVP), retries idempotentes.
+- Escalabilidad: horizontal por servicio; cache de catálogos.
+- Observabilidad: logs estructurados, métricas y alertas.
+
+# 15) CONTENIDOS EDUCATIVOS (semillas)
+- Misiones semana 1: “Armar presupuesto básico”, “Ahorro 20% mesada”, “Evitar compra impulsiva”.
+- Quiz de conceptos: ingreso/egreso, ahorro, interés simple vs compuesto.
+- Lecciones cortas con ejemplos locales (AR).
+
+# 16) CRITERIOS DE ACEPTACIÓN (MVP)
+- Un junior puede registrarse, vincular un padre, completar 3 misiones y canjear 1 beneficio simulado.
+- Un padre puede ver dashboard, definir 2 límites y aprobar 1 acción.
+- Un admin puede crear/editar una misión y activar un partner.
+- Todos los endpoints protegidos por RBAC; auditoría habilitada.
+- Accesibilidad validada (checks automatizados + testing manual).
+
+# 17) PRUEBAS
+- Unit tests (≥70% cobertura en servicios críticos).
+- E2E: flujos completos Junior y Parental.
+- Seguridad: rate limiting, CSRF/CORS correctos, validación de payloads (Zod/DTO).
+- Usabilidad: test con 5 usuarios (heurísticas Nielsen).
+
+# 18) ENTREGABLES
+- Figma: design system + 15–20 pantallas (Junior, Parental, Admin).
+- Repos monorepo (apps/, services/, packages/), scripts de seed de datos.
+- Infra Docker Compose para levantar API + DB + Adminer.
+- Documentación: README orquestado (setup, env, scripts, roles).
+- Demo navegable (web) + build Expo para Android.
+
+# 19) ESTILO VISUAL (guía breve)
+- Paleta: violeta/azules Ualá; acentos en verde para éxito/progreso.
+- Componentes: cards limpias, sombras suaves, bordes radius 12–16.
+- Ilustraciones/íconos redondeados, tono cercano y pedagógico.
+
+# 20) ROADMAP (post-MVP)
+- Integración con productos reales de Ualá (tarjeta junior supervisada).
+- Reglas parentales avanzadas (categorías, horarios, geofencing opcional).
+- Misiones adaptativas por nivel; recomendaciones con IA educativa.
+- Programa de escuelas: panel para docentes y paquetes de contenidos.
+
+CONSTRAINTS / NOTAS:
+- No usar dinero real en MVP (todo canje simulado).
+- Preparar el código para endurecer compliance si se activan features bancarias.
+- [[Incluir logo de Ualá si hay permiso]] / reemplazar por placeholders si no.
+
+SALIDA ESPERADA DE ESTE PROMPT:
+1) Sitemap y user flows detallados.
+2) Wireframes por pantalla (Junior, Parental, Admin).
+3) Esquema de base de datos y contratos REST.
+4) Lista de tareas (issues) priorizadas (MVP/Next).
+5) Prototipo inicial y guía de pruebas.
+
